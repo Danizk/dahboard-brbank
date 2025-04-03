@@ -28,7 +28,7 @@ def load_kpis():
     try:
         # --- CORREÇÃO APLICADA AQUI ---
         # Usa 'Métrica' com acento no set_index
-        df = pd.read_csv('kpis_gerais.csv').set_index('Métrica')
+        df = pd.read_csv('kpis_gerais.csv').set_index('metrica')
         # --- FIM DA CORREÇÃO ---
 
         df['Valor_Limp'] = df['Valor'].astype(str).str.replace('R$', '', regex=False).str.replace('%', '', regex=False).str.strip()
