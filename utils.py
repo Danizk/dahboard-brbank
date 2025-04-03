@@ -1,22 +1,27 @@
 import streamlit as st
 import pandas as pd
 
-# --- Funções de Formatação ---
+# --- Funções de Formatação (Mantidas como antes) ---
 def format_currency(value):
     try:
         numeric_string = ''.join(filter(lambda x: x.isdigit() or x in ['.', ','], str(value)))
-        numeric_string = numeric_string.replace('.', '', numeric_string.count('.') - 1).replace(',', '.') if isinstance(numeric_string, str) else str(value)
+        # Lógica aprimorada para lidar com . como milhar e , como decimal OU o contrário
+        if ',' in numeric_string and '.' in numeric_string:
+            if numeric_string.rfind(',') > numeric_string.rfind('.'): # Formato pt-BR: 1.234,56
+                 numeric_string = numeric_string.replace('.', '', numeric_string.count('.') -1).replace(',', '.')
+            # else: Formato en-US 1,234.56 - já estaria quase correto, só remover vírgula
+        numeric_string = numeric_string.replace(',', '') # Remove separador de milhar se for vírgula
+
         numeric_value = float(numeric_string)
         # Formatação BR
         return f"R$ {numeric_value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except (ValueError, TypeError, AttributeError):
-        return "N/A" # Retorna N/A se não for número válido
+        return "N/A"
 
 def format_percentage(value):
     try:
-        numeric_string = ''.join(filter(lambda x: x.isdigit() or x in ['.', ','], str(value)))
-        numeric_string = numeric_string.replace('.', '', numeric_string.count('.') - 1).replace(',', '.') if isinstance(numeric_string, str) else str(value)
-        numeric_value = float(numeric_string)
+        # Converte para float e formata, não precisa de limpeza complexa se a leitura estiver correta
+        numeric_value = float(value)
         return f"{numeric_value:.2f}%"
     except (ValueError, TypeError, AttributeError):
         return "N/A"
@@ -26,11 +31,19 @@ def format_percentage(value):
 def load_kpis():
     try:
         df = pd.read_csv('kpis_gerais.csv').set_index('Metrica')
-        # Tenta converter a coluna 'Valor' para numérico onde possível
+        # --- LÓGICA DE LIMPEZA CORRIGIDA ---
+        # Remove R$, % e espaços. Trata , como separador de milhar (remove). Preserva . como decimal.
         df['Valor'] = pd.to_numeric(
-            df['Valor'].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace(',', '.', regex=False),
+            df['Valor'].astype(str).str.replace('R$', '', regex=False)
+                                  .str.replace('%', '', regex=False)
+                                  .str.replace('.', '', regex=False) # Remove separador de milhar pt-BR
+                                  .str.replace(',', '.', regex=False) # Troca decimal pt-BR para .
+                                  .str.strip(), # Remove espaços extras
             errors='coerce' # Erros viram NaN
         )
+        # --- FIM DA LÓGICA CORRIGIDA ---
+        if df['Valor'].isnull().any():
+             st.warning("Aviso: Alguns valores em kpis_gerais.csv não puderam ser convertidos para número após limpeza.")
         return df
     except FileNotFoundError:
         st.error("Erro Crítico: Arquivo kpis_gerais.csv não encontrado.")
@@ -40,15 +53,14 @@ def load_kpis():
         return None
 
 @st.cache_data
-def load_midia():
+def load_midia(): # Mantida como antes, parece ok
     try:
         df = pd.read_csv('midia_canais.csv').set_index('Metrica')
-        # Converte colunas para numérico
         cols_to_convert_midia = ['MetaAds', 'GoogleAds', 'Total']
         for col in cols_to_convert_midia:
              if col in df.columns and df[col].dtype == 'object':
-                  df[col] = df[col].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace(',', '.', regex=False)
-             if col in df.columns: # Verifica se coluna existe após limpeza
+                  df[col] = df[col].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace(',', '.', regex=False).str.strip()
+             if col in df.columns:
                  df[col] = pd.to_numeric(df[col], errors='coerce')
         return df
     except FileNotFoundError:
@@ -59,14 +71,13 @@ def load_midia():
         return None
 
 @st.cache_data
-def load_performance():
+def load_performance(): # Mantida como antes, parece ok
     try:
         df = pd.read_csv('performance_vendedores.csv')
-        # Tenta converter colunas relevantes para numérico
         cols_to_num = ['Leads Recebidos', 'Leads Convertidos', 'Leads Perdidos', 'Taxa Conversão (%)', 'Ticket Médio (R$)', 'Receita Total (R$)', 'Receita por Lead (R$)', 'Tempo Conversão (dias)']
         for col in cols_to_num:
             if col in df.columns:
-                 df[col] = pd.to_numeric(df[col], errors='coerce') # Erros viram NaN
+                 df[col] = pd.to_numeric(df[col], errors='coerce')
         return df
     except FileNotFoundError:
         st.error("Erro Crítico: Arquivo performance_vendedores.csv não encontrado.")
@@ -76,14 +87,13 @@ def load_performance():
         return None
 
 @st.cache_data
-def load_perda():
+def load_perda(): # Mantida como antes, parece ok
     try:
         df = pd.read_csv('motivos_perda.csv').set_index('Motivo')
-         # Tenta converter colunas de vendedores e Total para numérico
         cols_to_num = ['A', 'B', 'C', 'D', 'E', 'Total']
         for col in cols_to_num:
             if col in df.columns:
-                 df[col] = pd.to_numeric(df[col], errors='coerce') # Erros viram NaN
+                 df[col] = pd.to_numeric(df[col], errors='coerce')
         return df
     except FileNotFoundError:
         st.error("Erro Crítico: Arquivo motivos_perda.csv não encontrado.")
@@ -93,9 +103,7 @@ def load_perda():
         return None
 
 # --- Função para Download de DataFrame como CSV ---
-@st.cache_data # Cacheia a conversão para não refazer toda hora
+@st.cache_data
 def convert_df_to_csv(df_to_convert):
-   # IMPORTANT: Cache the conversion to prevent computation on every rerun
-   # Garante que o índice seja incluído se ele tiver nome (como 'Motivo' ou 'Metrica')
    include_index = df_to_convert.index.name is not None
-   return df_to_convert.to_csv(index=include_index).encode('utf-8-sig') # Usa utf-8-sig para melhor compatibilidade Excel
+   return df_to_convert.to_csv(index=include_index).encode('utf-8-sig')
