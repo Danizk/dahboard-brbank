@@ -23,13 +23,13 @@ def load_kpis():
     try:
         # Leitura direta, especificando decimal e tentando inferir índice corretamente
         df = pd.read_csv('kpis_gerais.csv', decimal='.')
-        # Verifica se 'Métrica' existe antes de definir como índice
-        if 'Métrica' in df.columns:
-             df = df.set_index('Métrica')
-        elif 'Metrica' in df.columns: # Fallback caso o cabeçalho mude
-             df = df.set_index('Metrica')
+        # Verifica se 'metrica' existe antes de definir como índice
+        if 'metrica' in df.columns:
+             df = df.set_index('metrica')
+        elif 'metrica' in df.columns: # Fallback caso o cabeçalho mude
+             df = df.set_index('metrica')
         else:
-             st.error("Coluna 'Métrica' ou 'Metrica' não encontrada em kpis_gerais.csv!")
+             st.error("Coluna 'metrica' ou 'metrica' não encontrada em kpis_gerais.csv!")
              return None
 
         # Tenta converter 'Valor' para numérico, removendo APENAS R$ e % se presentes
@@ -51,7 +51,7 @@ def load_kpis():
 @st.cache_data
 def load_midia():
     try:
-        df = pd.read_csv('midia_canais.csv').set_index('Metrica') # Assume 'Metrica' aqui
+        df = pd.read_csv('midia_canais.csv').set_index('metrica') # Assume 'metrica' aqui
         cols_to_convert_midia = ['MetaAds', 'GoogleAds', 'Total']
         for col in cols_to_convert_midia:
              if col in df.columns:
@@ -60,7 +60,7 @@ def load_midia():
                   df = df.drop(columns=[f'{col}_Limp'])
         return df
     except FileNotFoundError: st.error("Erro Crítico: Arquivo midia_canais.csv não encontrado."); return None
-    except KeyError as e: st.error(f"Erro Crítico: Coluna 'Metrica' não encontrada em midia_canais.csv."); return None
+    except KeyError as e: st.error(f"Erro Crítico: Coluna 'metrica' não encontrada em midia_canais.csv."); return None
     except Exception as e: st.error(f"Erro ao carregar midia_canais.csv: {e}"); return None
 
 @st.cache_data
@@ -90,3 +90,5 @@ def load_perda():
 def convert_df_to_csv(df_to_convert):
    include_index = df_to_convert.index.name is not None
    return df_to_convert.to_csv(index=include_index).encode('utf-8-sig')
+
+
